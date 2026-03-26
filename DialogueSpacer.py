@@ -58,18 +58,29 @@ def main():
     # Sort items chronologically by their current start position
     items.sort(key=lambda x: x["pos"])
     
-    # Process if there's more than one item to space
-    if len(items) > 1:
-        for index, p_item in enumerate(items):
-            if index == 0:
-                continue
+    pad_sec = 0.1 # 100 ms padding / fades
+
+    # Aplicamos el espaciado empujando, luego extendemos y hacemos fades a todos los clips
+    for index, p_item in enumerate(items):
+        # 1. Calculamos la posición aplicando el gap introducido progresivamente
+        shifted_pos = p_item["pos"] + (index * gap_sec)
+        
+        # 2. Extendemos 100ms a la izquierda y 100ms a la derecha
+        final_pos = shifted_pos - pad_sec
+        final_length = p_item["length"] + (2 * pad_sec)
+        
+        RPR_SetMediaItemInfo_Value(p_item["item"], "D_POSITION", final_pos)
+        RPR_SetMediaItemInfo_Value(p_item["item"], "D_LENGTH", final_length)
+        
+        # 3. Compensamos el offset del audio en el Take para no desincronizarlo al estirar a la izq
+        take = RPR_GetActiveTake(p_item["item"])
+        if take:
+            start_offs = RPR_GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
+            RPR_SetMediaItemTakeInfo_Value(take, "D_STARTOFFS", start_offs - pad_sec)
             
-            # El espaciado introducido se suma progresivamente:
-            # el ítem 1 se mueve 1x gap, el ítem 2 se mueve 2x gap, etc.
-            new_pos = p_item["pos"] + (index * gap_sec)
-            
-            # Move the item
-            RPR_SetMediaItemInfo_Value(p_item["item"], "D_POSITION", new_pos)
+        # 4. Añadimos Fade In y Fade Out de 100ms exactos
+        RPR_SetMediaItemInfo_Value(p_item["item"], "D_FADEINLEN", pad_sec)
+        RPR_SetMediaItemInfo_Value(p_item["item"], "D_FADEOUTLEN", pad_sec)
 
     RPR_Undo_EndBlock2(0, "Space selected dialogue items", -1)
     RPR_UpdateTimeline()
