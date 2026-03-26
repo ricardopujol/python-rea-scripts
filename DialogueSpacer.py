@@ -4,7 +4,7 @@
 #   - Extends each clip 100 ms on both sides to expose natural ambience/breath
 #   - Adjusts the take source offset so the audio content does not drift
 #   - Applies 100 ms fade-in and fade-out to each clip
-# The entire operation is wrapped in one undo block.
+# The entire operation is wrapped in one undo block
 
 from reaper_python import *
 
