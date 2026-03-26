@@ -48,9 +48,6 @@ def main():
         
     try:
         gap_ms = float(vals)
-        if gap_ms < 0:
-            RPR_MB("Please enter a positive number for the gap time.", "Invalid Input", 0)
-            return
     except ValueError:
         RPR_MB("Please enter a valid numeric value for the gap time.", "Invalid Input", 0)
         return
@@ -63,18 +60,16 @@ def main():
     
     # Process if there's more than one item to space
     if len(items) > 1:
-        # 3. Calculate from the strict end boundary of the very first item
-        prev_end = items[0]["pos"] + items[0]["length"]
-        
-        for p_item in items[1:]:
-            # New position = EXACT previous item end position + gap time
-            new_pos = prev_end + gap_sec
+        for index, p_item in enumerate(items):
+            if index == 0:
+                continue
+            
+            # El espaciado introducido se suma progresivamente:
+            # el ítem 1 se mueve 1x gap, el ítem 2 se mueve 2x gap, etc.
+            new_pos = p_item["pos"] + (index * gap_sec)
             
             # Move the item
             RPR_SetMediaItemInfo_Value(p_item["item"], "D_POSITION", new_pos)
-            
-            # Recalculate prev_end for the next iteration (using its strict end boundary)
-            prev_end = new_pos + p_item["length"]
 
     RPR_Undo_EndBlock2(0, "Space selected dialogue items", -1)
     RPR_UpdateTimeline()
