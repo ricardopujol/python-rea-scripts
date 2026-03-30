@@ -74,6 +74,19 @@ def main():
     # 100 ms pad applied to both sides of every clip for breath/ambience and fades
     pad_sec = 0.1
 
+    # --- Collect unselected items on the same track that sit to the right of the
+    #     last selected clip (using original positions, before any writes) ---
+    last_original_pos = items[-1]["pos"]
+    right_side_items = []
+    num_track_items = RPR_CountTrackMediaItems(first_track)
+    for i in range(num_track_items):
+        t_item = RPR_GetTrackMediaItem(first_track, i)
+        if RPR_IsMediaItemSelected(t_item):
+            continue
+        t_pos = RPR_GetMediaItemInfo_Value(t_item, "D_POSITION")
+        if t_pos > last_original_pos:
+            right_side_items.append(t_item)
+
     # --- Process each clip ---
     for index, p_item in enumerate(items):
 
@@ -98,6 +111,13 @@ def main():
         # Apply exact 100 ms fade-in and fade-out for smooth transitions
         RPR_SetMediaItemInfo_Value(p_item["item"], "D_FADEINLEN", pad_sec)
         RPR_SetMediaItemInfo_Value(p_item["item"], "D_FADEOUTLEN", pad_sec)
+
+    # --- Shift right-side unselected items to preserve their gap with the last clip ---
+    # The last selected clip's right edge moved by: (n-1)*gap_sec + pad_sec
+    right_shift = (len(items) - 1) * gap_sec + pad_sec
+    for t_item in right_side_items:
+        t_pos = RPR_GetMediaItemInfo_Value(t_item, "D_POSITION")
+        RPR_SetMediaItemInfo_Value(t_item, "D_POSITION", t_pos + right_shift)
 
     RPR_Undo_EndBlock2(0, "Space selected dialogue items", -1)
     RPR_UpdateTimeline()
