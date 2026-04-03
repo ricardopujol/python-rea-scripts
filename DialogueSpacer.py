@@ -1,8 +1,6 @@
 # DialogueSpacer.py
 # Selects clips on a single track, asks for a gap in milliseconds, then:
 #   - Shifts each clip right by an accumulating gap (preserving existing spacing)
-#   - Extends each clip 100 ms on both sides to expose natural ambience/breath
-#   - Adjusts the take source offset so the audio content does not drift
 #   - Applies 100 ms fade-in and fade-out to each clip
 # The entire operation is wrapped in one undo block
 
@@ -71,8 +69,8 @@ def main():
     # Sort items chronologically so we always process left-to-right
     items.sort(key=lambda x: x["pos"])
 
-    # 100 ms pad applied to both sides of every clip for breath/ambience and fades
-    pad_sec = 0.1
+    # 100 ms used for fade-in and fade-out (but no longer extending clip bounds)
+    fade_sec = 0.1
 
     # --- Collect unselected items on the same track that sit to the right of the
     #     last selected clip (using original positions, before any writes) ---
@@ -94,27 +92,15 @@ def main():
         # clip 0 moves 0x gap (anchor), clip 1 moves 1x gap, clip 2 moves 2x gap, etc.
         shifted_pos = p_item["pos"] + (index * gap_sec)
 
-        # Extend the clip 100 ms to the left and 100 ms to the right
-        final_pos = shifted_pos - pad_sec
-        final_length = p_item["length"] + (2 * pad_sec)
-
-        RPR_SetMediaItemInfo_Value(p_item["item"], "D_POSITION", final_pos)
-        RPR_SetMediaItemInfo_Value(p_item["item"], "D_LENGTH", final_length)
-
-        # Compensate the take source offset so the underlying audio does not drift
-        # when we extend the left edge of the item boundary
-        take = RPR_GetActiveTake(p_item["item"])
-        if take:
-            start_offs = RPR_GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
-            RPR_SetMediaItemTakeInfo_Value(take, "D_STARTOFFS", start_offs - pad_sec)
+        RPR_SetMediaItemInfo_Value(p_item["item"], "D_POSITION", shifted_pos)
 
         # Apply exact 100 ms fade-in and fade-out for smooth transitions
-        RPR_SetMediaItemInfo_Value(p_item["item"], "D_FADEINLEN", pad_sec)
-        RPR_SetMediaItemInfo_Value(p_item["item"], "D_FADEOUTLEN", pad_sec)
+        RPR_SetMediaItemInfo_Value(p_item["item"], "D_FADEINLEN", fade_sec)
+        RPR_SetMediaItemInfo_Value(p_item["item"], "D_FADEOUTLEN", fade_sec)
 
     # --- Shift right-side unselected items to preserve their gap with the last clip ---
-    # The last selected clip's right edge moved by: (n-1)*gap_sec + pad_sec
-    right_shift = (len(items) - 1) * gap_sec + pad_sec
+    # The last selected clip's right edge moved by: (n-1)*gap_sec
+    right_shift = (len(items) - 1) * gap_sec
     for t_item in right_side_items:
         t_pos = RPR_GetMediaItemInfo_Value(t_item, "D_POSITION")
         RPR_SetMediaItemInfo_Value(t_item, "D_POSITION", t_pos + right_shift)
